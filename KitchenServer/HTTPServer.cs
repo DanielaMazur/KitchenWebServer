@@ -16,7 +16,7 @@ namespace KitchenServer
           public HTTPServer(int port)
           {
                _httpListener = new HttpListener();
-               _httpListener.Prefixes.Add($"http://localhost:{port}/");
+               _httpListener.Prefixes.Add($"http://kitchen-server-container:{port}/");
           }
 
           public void Start()

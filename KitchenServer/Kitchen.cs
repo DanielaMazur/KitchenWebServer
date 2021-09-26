@@ -36,7 +36,7 @@ namespace KitchenServer
                               {
                                    order.CoockingTime = DateTimeOffset.Now.ToUnixTimeMilliseconds() - order.OrderArriveTime;
                                    Console.WriteLine($"Order {order.OrderId} is ready in {order.CoockingTime}");
-                                   SendRequestService.SendPostRequest("http://localhost:3000/distribution", JsonConvert.SerializeObject(order));
+                                   SendRequestService.SendPostRequest("http://dining-hall-server-container:3000/distribution", JsonConvert.SerializeObject(order));
                                    _orders.Remove(order);
                               }
                          }
