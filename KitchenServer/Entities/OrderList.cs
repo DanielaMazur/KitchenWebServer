@@ -1,20 +1,21 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace KitchenServer
+namespace KitchenServer.Entities
 {
      class OrderList
      {
-          public List<string> Orders = new() { "order1", "order2" };
+          public List<Distribution> Orders = new();
+          private static readonly Lazy<OrderList> orderList = new(() => new OrderList());
+
           private OrderList()
           {
           }
-          private static readonly Lazy<OrderList> lazy = new(() => new OrderList());
           public static OrderList Instance
           {
                get
                {
-                    return lazy.Value;
+                    return orderList.Value;
                }
           }
      }
