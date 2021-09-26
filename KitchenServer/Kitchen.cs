@@ -26,9 +26,9 @@ namespace KitchenServer
           {
                while (true)
                {
-                    var copyOrders = _orders.ToArray();
-                    foreach (var order in copyOrders)
+                    foreach (var order in _orders.ToArray())
                     {
+                         if (order == null) continue;
                          if (order.CookingDetails.Count == order.Items.Length)
                          {
                               var isOrderReady = order.CookingDetails.All(c => c.Status == Enums.CookingStatusEnum.Ready);

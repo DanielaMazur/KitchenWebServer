@@ -33,11 +33,9 @@ namespace KitchenServer.Entities
                {
                     while (true)
                     {
-                         var ordersCopy = _orders.ToArray();
-                         if (_orders.Count == 0) continue;
-                         foreach(var order in ordersCopy)
+                         foreach(var order in _orders.ToArray())
                          {
-                              if (order.Items.Length == order.CookingDetails.Count) continue;
+                              if (order == null || order.Items.Length == order.CookingDetails.Count ) continue;
 
                               var unpreparedOrderIds = order.Items.Except(order.CookingDetails.Select(d => d.FoodId));
                               foreach(var unpreparedOrderId in unpreparedOrderIds)
