@@ -1,20 +1,22 @@
-﻿using System.IO;
+﻿using KitchenServer.Services;
+using System;
+using System.Linq;
 using System.Net;
-using System.Net.Sockets;
 using System.Threading;
 
 namespace KitchenServer
 {
      class HTTPServer
      {
-          private bool _isRunning = false;
-          private TcpListener _tcpListener;
+          private bool _isRunning;
+          private HttpListener _httpListener;
           public const string VERSION = "HTTP/1.1";
           public const string NAME = "Kitchen";
 
           public HTTPServer(int port)
           {
-               _tcpListener = new TcpListener(IPAddress.Any, port);
+               _httpListener = new HttpListener();
+               _httpListener.Prefixes.Add($"http://localhost:{port}/");
           }
 
           public void Start()
@@ -26,34 +28,28 @@ namespace KitchenServer
           private void Run()
           {
                _isRunning = true;
-               _tcpListener.Start();
+               _httpListener.Start();
 
                while (_isRunning)
                {
-                    TcpClient tcpClient = _tcpListener.AcceptTcpClient();
-                    HandleClient(tcpClient);
-                    tcpClient.Close();
+                    HttpListenerContext context = _httpListener.GetContext();
+                    HandleRequest(context);
                }
 
-               _tcpListener.Stop();
+               _httpListener.Stop();
           }
 
-          private static void HandleClient(TcpClient client)
+          private void HandleRequest(HttpListenerContext httpContext)
           {
-               StreamReader reader = new(client.GetStream());
+               var controllers = new ControllersService().Controllers;
+               var requestedController = controllers.SingleOrDefault(c => c.Method == httpContext.Request.HttpMethod && c.Route == httpContext.Request.RawUrl);
 
-               string msg = "";
-
-               while (reader.Peek() != -1)
+               if (requestedController == null)
                {
-                    msg += reader.ReadLine() + "\n";
+                    Console.WriteLine("No controller found for the given request.");
+                    return;
                }
-
-               System.Console.WriteLine("Request: \n" + msg);
-
-               Request req = Request.GetRequest(msg);
-               Response resp = Response.From(req);
-               resp.Post(client.GetStream());
+               requestedController.HandleRequest(httpContext);
           }
      }
 }
