@@ -1,7 +1,5 @@
 ﻿using KitchenServer.Enums;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -15,8 +13,7 @@ namespace KitchenServer.Entities
           public string Name { get; set; }
           public string CatchPhrase { get; set; }
 
-          private List<MenuItem> _menuItems = Menu.Instance.MenuItems;
-          private List<Distribution> _orders = OrderList.Instance.Orders;
+          public Semaphore ProficiencySemaphore;
 
           public Cook(int id, string name, CookRankEnum rank, int proficiency, string catchPhrase)
           {
@@ -25,6 +22,8 @@ namespace KitchenServer.Entities
                Rank = rank;
                Proficiency = proficiency;
                CatchPhrase = catchPhrase;
+               ProficiencySemaphore = new Semaphore(proficiency, proficiency);
+               Work();
           }
 
           public void Work()
@@ -33,33 +32,31 @@ namespace KitchenServer.Entities
                {
                     while (true)
                     {
-                         foreach(var order in _orders.ToArray())
+                         if (OrderList.Instance.Orders.Count > 0)
                          {
-                              if (order == null || order.Items.Length == order.CookingDetails.Count ) continue;
-
-                              var unpreparedOrderIds = order.Items.Except(order.CookingDetails.Select(d => d.FoodId));
-                              foreach(var unpreparedOrderId in unpreparedOrderIds)
-                              {
-                                   var menuOrder = _menuItems.Single(menuItem => menuItem.Id == unpreparedOrderId);
-                                   if(menuOrder.Complexity <= (int)Rank)
-                                   {
-                                        Console.WriteLine($"Cook {Name} took the {menuOrder.Name} from the order {order.OrderId}");
-                                        var cookingDetails = new CookingDetails(unpreparedOrderId, Id)
-                                        {
-                                             Status = CookingStatusEnum.Cooking
-                                        };
-                                        order.CookingDetails.Add(cookingDetails);
-                                        Task.Delay(menuOrder.PreparationTime).ContinueWith((task) => {
-                                             cookingDetails.Status = CookingStatusEnum.Ready;
-                                             Console.WriteLine($"Food {menuOrder.Name} from the order {order.OrderId} is Ready!");
-                                        });
-                                   }
-                              }
+                              Kitchen.PickUpOrderItem(this, CookItemHandler);
                          }
                     }
                }));
 
                t.Start();
           }
+
+          private void CookItemHandler(Distribution order, MenuItem menuOrder)
+          {
+               Console.WriteLine($"Cook {Name} took the {menuOrder.Name} from the order {order.OrderId}");
+               var cookingDetails = new CookingDetails(menuOrder.Id, Id)
+               {
+                    Status = CookingStatusEnum.Cooking
+               };
+               order.CookingDetails.Add(cookingDetails);
+               Task.Delay(menuOrder.PreparationTime).ContinueWith((task) =>
+                    {
+                         cookingDetails.Status = CookingStatusEnum.Ready;
+                         Console.WriteLine($"Food {menuOrder.Name} from the order {order.OrderId} is Ready!");
+                         ProficiencySemaphore.Release(1);
+                    });
+          }
+
      }
 }

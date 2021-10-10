@@ -13,7 +13,8 @@ namespace KitchenServer
           private List<Cook> _cooks;
           private List<CookingAparatus> _cookingAparatus;
           private List<MenuItem> _menuItems = Menu.Instance.MenuItems;
-          private List<Distribution> _orders = OrderList.Instance.Orders;
+          private static Mutex _mut = new();
+
           public Kitchen(List<Cook> cooks, List<CookingAparatus> cookingAparatus)
           {
                _cooks = cooks;
@@ -26,22 +27,49 @@ namespace KitchenServer
           {
                while (true)
                {
-                    foreach (var order in _orders.ToArray())
+                    foreach (var order in OrderList.Instance.Orders.ToList())
                     {
                          if (order == null) continue;
                          if (order.CookingDetails.Count == order.Items.Length)
                          {
-                              var isOrderReady = order.CookingDetails.All(c => c.Status == Enums.CookingStatusEnum.Ready);
+                              var isOrderReady = order.CookingDetails.ToList().All(c => c.Status == Enums.CookingStatusEnum.Ready);
                               if (isOrderReady)
                               {
                                    order.CoockingTime = DateTimeOffset.Now.ToUnixTimeMilliseconds() - order.OrderArriveTime;
                                    Console.WriteLine($"Order {order.OrderId} is ready in {order.CoockingTime}");
                                    SendRequestService.SendPostRequest("http://dining-hall-server-container:3000/distribution", JsonConvert.SerializeObject(order));
-                                   _orders.Remove(order);
+                                   OrderList.Instance.Orders.Remove(order);
                               }
                          }
                     }
                }
+          }
+
+          public static void PickUpOrderItem(Cook cook, Action<Distribution, MenuItem> cookItemHandler)
+          {
+               _mut.WaitOne();
+               if (cook.ProficiencySemaphore.WaitOne(0))
+               {
+                    var order = OrderList.Instance.Orders.FirstOrDefault();
+                    if (order == null)
+                    {
+                         cook.ProficiencySemaphore.Release(1);
+                         return;
+                    }
+                    var unpreparedOrderIds = order.Items.Except(order.CookingDetails.Select(d => d.FoodId));
+                    var menuOrder = unpreparedOrderIds
+                         .Select(itemId => Menu.Instance.MenuItems.Single(menuItem => menuItem.Id == itemId))
+                         .Where(item => item.Complexity <= (int)cook.Rank)
+                         .OrderBy(item => item.Complexity)
+                         .FirstOrDefault();
+                    if (menuOrder == null)
+                    {
+                         cook.ProficiencySemaphore.Release(1);
+                         return;
+                    }
+                    cookItemHandler(order, menuOrder);
+               }
+               _mut.ReleaseMutex();
           }
      }
 }
