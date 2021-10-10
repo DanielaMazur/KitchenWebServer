@@ -54,6 +54,7 @@ namespace KitchenServer
                     if (order == null)
                     {
                          cook.ProficiencySemaphore.Release(1);
+                         _mut.ReleaseMutex();
                          return;
                     }
                     var unpreparedOrderIds = order.Items.Except(order.CookingDetails.Select(d => d.FoodId));
@@ -62,9 +63,11 @@ namespace KitchenServer
                          .Where(item => item.Complexity <= (int)cook.Rank)
                          .OrderBy(item => item.Complexity)
                          .FirstOrDefault();
+                    
                     if (menuOrder == null)
                     {
                          cook.ProficiencySemaphore.Release(1);
+                         _mut.ReleaseMutex();
                          return;
                     }
                     cookItemHandler(order, menuOrder);
