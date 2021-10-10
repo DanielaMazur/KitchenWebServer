@@ -23,7 +23,7 @@ namespace KitchenServer.Controllers
 
                var recivedOrder = JsonConvert.DeserializeObject<Distribution>(order);
                recivedOrder.OrderArriveTime = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-               OrderList.Instance.Orders.Add(recivedOrder);
+               OrderList.Instance.Orders.Enqueue(recivedOrder);
 
                Console.WriteLine($"Kitchen recived the order with id-{recivedOrder.OrderId}!");
 
