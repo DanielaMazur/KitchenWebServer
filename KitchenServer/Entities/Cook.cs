@@ -34,7 +34,7 @@ namespace KitchenServer.Entities
                     {
                          if (OrderList.Instance.Orders.Count > 0)
                          {
-                              Kitchen.PickUpOrderItem(this, CookItemHandler);
+                              Kitchen.PickUpOrderItem(this);
                          }
                     }
                }));
@@ -42,21 +42,29 @@ namespace KitchenServer.Entities
                t.Start();
           }
 
-          private void CookItemHandler(Distribution order, MenuItem menuOrder)
+          public void CookItemHandler(Distribution order, MenuItem menuOrder, CookingAparatus cookingAparatus)
           {
                Console.WriteLine($"Cook {Name} took the {menuOrder.Name} from the order {order.OrderId}");
+               if(cookingAparatus != null)
+               {
+                    cookingAparatus.State = CookingAparatusStateEnum.Busy;
+               }
                var cookingDetails = new CookingDetails(menuOrder.Id, Id)
                {
                     Status = CookingStatusEnum.Cooking
                };
                order.CookingDetails.Add(cookingDetails);
+               var startTime = DateTimeOffset.Now.ToUnixTimeMilliseconds();
                Task.Delay(menuOrder.PreparationTime).ContinueWith((task) =>
+               {
+                    if (cookingAparatus != null)
                     {
-                         cookingDetails.Status = CookingStatusEnum.Ready;
-                         Console.WriteLine($"Food {menuOrder.Name} from the order {order.OrderId} is Ready!");
-                         ProficiencySemaphore.Release(1);
-                    });
+                         cookingAparatus.State = CookingAparatusStateEnum.Free;
+                    }
+                    cookingDetails.Status = CookingStatusEnum.Ready;
+                    Console.WriteLine($"Food {menuOrder.Name} from the order {order.OrderId} is Ready in {DateTimeOffset.Now.ToUnixTimeMilliseconds() - startTime}, expedcted={menuOrder.PreparationTime}!");
+                    ProficiencySemaphore.Release(1);
+               });
           }
-
      }
 }

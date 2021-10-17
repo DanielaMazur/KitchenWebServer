@@ -7,8 +7,8 @@ namespace KitchenServer.Services
      {
           public int Compare(Distribution x, Distribution y)
           {
-               if (x.Priority > y.Priority) return 1;
-               if (x.Priority < y.Priority) return -1;
+               if (x.Priority * x.PickUpTime > y.Priority * y.PickUpTime) return 1;
+               if (x.Priority * x.PickUpTime < y.Priority * y.PickUpTime) return -1;
                return 0;
           }
      }

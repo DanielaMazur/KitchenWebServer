@@ -11,7 +11,7 @@ namespace KitchenServer
      class Kitchen
      {
           private List<Cook> _cooks;
-          private List<CookingAparatus> _cookingAparatus;
+          private static List<CookingAparatus> _cookingAparatus;
           private List<MenuItem> _menuItems = Menu.Instance.MenuItems;
           private static Mutex _mut = new();
 
@@ -45,7 +45,7 @@ namespace KitchenServer
                }
           }
 
-          public static void PickUpOrderItem(Cook cook, Action<Distribution, MenuItem> cookItemHandler)
+          public static void PickUpOrderItem(Cook cook)
           {
                _mut.WaitOne();
                if (cook.ProficiencySemaphore.WaitOne(0))
@@ -57,20 +57,23 @@ namespace KitchenServer
                          _mut.ReleaseMutex();
                          return;
                     }
-                    var unpreparedOrderIds = order.Items.Except(order.CookingDetails.Select(d => d.FoodId));
-                    var menuOrder = unpreparedOrderIds
+                    var availableCookingAparatus = _cookingAparatus.Where(a => a.State == Enums.CookingAparatusStateEnum.Free).Select(a => a.Name).ToList();
+                    var unpreparedOrderIds = order.Items.Except(order.CookingDetails.Select(d => d.FoodId)).ToList();
+                    var test = unpreparedOrderIds
                          .Select(itemId => Menu.Instance.MenuItems.Single(menuItem => menuItem.Id == itemId))
-                         .Where(item => item.Complexity <= (int)cook.Rank)
-                         .OrderBy(item => item.Complexity)
-                         .FirstOrDefault();
-                    
+                         .Where(item => item.Complexity <= (int)cook.Rank && (item.CookingAparatus == null || availableCookingAparatus.Contains(item.CookingAparatus)))
+                         .OrderBy(item => item.Complexity).ToList();
+
+                    var menuOrder = test
+                              .FirstOrDefault();
                     if (menuOrder == null)
                     {
                          cook.ProficiencySemaphore.Release(1);
                          _mut.ReleaseMutex();
                          return;
                     }
-                    cookItemHandler(order, menuOrder);
+
+                    cook.CookItemHandler(order, menuOrder, menuOrder.CookingAparatus != null ? _cookingAparatus.Single(a => a.Name == menuOrder.CookingAparatus) : null);
                }
                _mut.ReleaseMutex();
           }
