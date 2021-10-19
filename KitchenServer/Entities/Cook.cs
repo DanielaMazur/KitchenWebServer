@@ -15,6 +15,7 @@ namespace KitchenServer.Entities
 
           public Semaphore ProficiencySemaphore;
 
+          private bool _isWaitingToOrder;
           public Cook(int id, string name, CookRankEnum rank, int proficiency, string catchPhrase)
           {
                Id = id;
@@ -34,7 +35,10 @@ namespace KitchenServer.Entities
                     {
                          if (OrderList.Instance.Orders.Count > 0)
                          {
+                              if (_isWaitingToOrder) continue;
+                              _isWaitingToOrder = true;
                               Kitchen.PickUpOrderItem(this);
+                              _isWaitingToOrder = false;
                          }
                     }
                }));
@@ -44,8 +48,8 @@ namespace KitchenServer.Entities
 
           public void CookItemHandler(Distribution order, MenuItem menuOrder, CookingAparatus cookingAparatus)
           {
-               Console.WriteLine($"Cook {Name} took the {menuOrder.Name} from the order {order.OrderId}");
-               if(cookingAparatus != null)
+               Console.WriteLine($"Cook {Name} took the {menuOrder.Name} from the order {order.OrderId} at = {DateTimeOffset.Now.ToUnixTimeMilliseconds() - order.OrderArriveTime}");
+               if (cookingAparatus != null)
                {
                     cookingAparatus.State = CookingAparatusStateEnum.Busy;
                }
@@ -55,6 +59,7 @@ namespace KitchenServer.Entities
                };
                order.CookingDetails.Add(cookingDetails);
                var startTime = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+
                Task.Delay(menuOrder.PreparationTime).ContinueWith((task) =>
                {
                     if (cookingAparatus != null)
@@ -62,7 +67,7 @@ namespace KitchenServer.Entities
                          cookingAparatus.State = CookingAparatusStateEnum.Free;
                     }
                     cookingDetails.Status = CookingStatusEnum.Ready;
-                    Console.WriteLine($"Food {menuOrder.Name} from the order {order.OrderId} is Ready in {DateTimeOffset.Now.ToUnixTimeMilliseconds() - startTime}, expedcted={menuOrder.PreparationTime}!");
+                    Console.WriteLine($"Food {menuOrder.Name} from the order {order.OrderId} is Ready in {DateTimeOffset.Now.ToUnixTimeMilliseconds() - startTime}, expedcted={menuOrder.PreparationTime}, time from order reveived = {DateTimeOffset.Now.ToUnixTimeMilliseconds() - order.OrderArriveTime}!");
                     ProficiencySemaphore.Release(1);
                });
           }

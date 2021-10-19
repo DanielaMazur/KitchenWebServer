@@ -10,36 +10,35 @@ namespace KitchenServer
 {
      class Kitchen
      {
-          private List<Cook> _cooks;
           private static List<CookingAparatus> _cookingAparatus;
-          private List<MenuItem> _menuItems = Menu.Instance.MenuItems;
           private static Mutex _mut = new();
 
-          public Kitchen(List<Cook> cooks, List<CookingAparatus> cookingAparatus)
+          public Kitchen()
           {
-               _cooks = cooks;
-               _cookingAparatus = cookingAparatus;
-               Thread t = new(new ThreadStart(() => Start()));
-               t.Start();
+               new Cook(1, "Alin", Enums.CookRankEnum.ExecutiveChef, 3, "Hi, I hope you like spicy food!");
+               new Cook(2, "Ana", Enums.CookRankEnum.Saucier, 2, "Hi, I cook the most delicious food ever!");
+               new Cook(3, "Cristi", Enums.CookRankEnum.ExecutiveChef, 2, "Hi, I hope you like spicy food!");
+               new Cook(4, "Ioana", Enums.CookRankEnum.Saucier, 1, "Hi, I cook the most delicious food ever!");
+               new Cook(5, "Erik", Enums.CookRankEnum.LineCook, 1, "Hi, I cook the most delicious food ever!");
+
+               _cookingAparatus = new() { new CookingAparatus("oven"), new CookingAparatus("stove") };
+
+               new Thread(new ThreadStart(() => this.Start())).Start();
           }
 
           private void Start()
           {
                while (true)
                {
-                    foreach (var order in OrderList.Instance.Orders.ToList())
+                    foreach (var order in OrderList.Instance.Orders.ToArray())
                     {
                          if (order == null) continue;
-                         if (order.CookingDetails.Count == order.Items.Length)
+                         if (order.CookingDetails.Count == order.Items.Length && order.CookingDetails.All(c => c.Status == Enums.CookingStatusEnum.Ready))
                          {
-                              var isOrderReady = order.CookingDetails.ToList().All(c => c.Status == Enums.CookingStatusEnum.Ready);
-                              if (isOrderReady)
-                              {
-                                   order.CoockingTime = DateTimeOffset.Now.ToUnixTimeMilliseconds() - order.OrderArriveTime;
-                                   Console.WriteLine($"Order {order.OrderId} is ready in {order.CoockingTime}");
-                                   SendRequestService.SendPostRequest("http://dining-hall-server-container:3000/distribution", JsonConvert.SerializeObject(order));
-                                   OrderList.Instance.Orders.Remove(order);
-                              }
+                              order.CoockingTime = DateTimeOffset.Now.ToUnixTimeMilliseconds() - order.OrderArriveTime;
+                              Console.WriteLine($"ORDER {order.OrderId} is ready in {order.CoockingTime} TIME");
+                              SendRequestService.SendPostRequest("http://dining-hall-server-container:3000/distribution", JsonConvert.SerializeObject(order));
+                              OrderList.Instance.Orders.Remove(order);
                          }
                     }
                }
@@ -47,35 +46,36 @@ namespace KitchenServer
 
           public static void PickUpOrderItem(Cook cook)
           {
+               if (GetPerfectOrderForCook(cook) == null) return;
                _mut.WaitOne();
                if (cook.ProficiencySemaphore.WaitOne(0))
                {
-                    var order = OrderList.Instance.Orders.FirstOrDefault();
-                    if (order == null)
+                    var orderItem = GetPerfectOrderForCook(cook);
+                    if (orderItem == null)
                     {
                          cook.ProficiencySemaphore.Release(1);
                          _mut.ReleaseMutex();
                          return;
                     }
-                    var availableCookingAparatus = _cookingAparatus.Where(a => a.State == Enums.CookingAparatusStateEnum.Free).Select(a => a.Name).ToList();
-                    var unpreparedOrderIds = order.Items.Except(order.CookingDetails.Select(d => d.FoodId)).ToList();
-                    var test = unpreparedOrderIds
-                         .Select(itemId => Menu.Instance.MenuItems.Single(menuItem => menuItem.Id == itemId))
-                         .Where(item => item.Complexity <= (int)cook.Rank && (item.CookingAparatus == null || availableCookingAparatus.Contains(item.CookingAparatus)))
-                         .OrderBy(item => item.Complexity).ToList();
-
-                    var menuOrder = test
-                              .FirstOrDefault();
-                    if (menuOrder == null)
-                    {
-                         cook.ProficiencySemaphore.Release(1);
-                         _mut.ReleaseMutex();
-                         return;
-                    }
-
-                    cook.CookItemHandler(order, menuOrder, menuOrder.CookingAparatus != null ? _cookingAparatus.Single(a => a.Name == menuOrder.CookingAparatus) : null);
+                    OrderList.Instance.OrderedItems.Remove(orderItem);
+                    var order = OrderList.Instance.Orders.Single(order => order.OrderId == orderItem.Order.OrderId);
+                    var requiredCookingAparatus = orderItem.OrderMenuItem.CookingAparatus != null ? _cookingAparatus.Single(a => a.Name == orderItem.OrderMenuItem.CookingAparatus) : null;
+                    _mut.ReleaseMutex();
+                    cook.CookItemHandler(order, orderItem.OrderMenuItem, requiredCookingAparatus);
                }
-               _mut.ReleaseMutex();
+               else
+               {
+                    _mut.ReleaseMutex();
+               }
+          }
+
+          private static OrderItem GetPerfectOrderForCook(Cook cook)
+          {
+               var availableCookingAparatus = _cookingAparatus.Where(a => a.State == Enums.CookingAparatusStateEnum.Free).Select(a => a.Name).ToList();
+               return OrderList.Instance.OrderedItems
+                         .Where(item => item != null && item.OrderMenuItem.Complexity <= (int)cook.Rank && (item.OrderMenuItem.CookingAparatus == null || availableCookingAparatus.Contains(item.OrderMenuItem.CookingAparatus)))
+                         .OrderBy(item => item.OrderMenuItem.Complexity)
+                         .LastOrDefault();
           }
      }
 }
