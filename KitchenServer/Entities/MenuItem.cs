@@ -12,7 +12,7 @@
           {
                Id = id;
                Name = name;
-               PreparationTime = preparationTime;
+               PreparationTime = preparationTime * Constants.TIME_UNIT;
                Complexity = complexity;
                CookingAparatus = cookingAparatus;
           }
