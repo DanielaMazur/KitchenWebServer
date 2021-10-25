@@ -1,4 +1,5 @@
-﻿using KitchenServer.Services;
+﻿using KitchenServer.Entities;
+using KitchenServer.Services;
 using System;
 using System.Linq;
 using System.Net;
@@ -13,10 +14,10 @@ namespace KitchenServer
           public const string VERSION = "HTTP/1.1";
           public const string NAME = "Kitchen";
 
-          public HTTPServer(int port)
+          public HTTPServer()
           {
                _httpListener = new HttpListener();
-               _httpListener.Prefixes.Add($"http://kitchen-server-container:{port}/");
+               _httpListener.Prefixes.Add($"{Constants.RESTAURANT_ADDRESS}/");
           }
 
           public void Start()

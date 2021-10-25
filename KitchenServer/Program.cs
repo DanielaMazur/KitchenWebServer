@@ -1,13 +1,10 @@
-﻿using KitchenServer.Entities;
-using System.Collections.Generic;
-
-namespace KitchenServer
+﻿namespace KitchenServer
 {
      class Program
      {
           static void Main(string[] args)
           {
-               HTTPServer server = new(8000);
+               HTTPServer server = new();
                server.Start();
 
                new Kitchen();

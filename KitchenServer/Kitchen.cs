@@ -15,13 +15,15 @@ namespace KitchenServer
 
           public Kitchen()
           {
-               new Cook(1, "Alin", Enums.CookRankEnum.ExecutiveChef, 3, "Hi, I hope you like spicy food!");
-               new Cook(2, "Ana", Enums.CookRankEnum.Saucier, 2, "Hi, I cook the most delicious food ever!");
-               new Cook(3, "Cristi", Enums.CookRankEnum.ExecutiveChef, 2, "Hi, I hope you like spicy food!");
-               new Cook(4, "Ioana", Enums.CookRankEnum.Saucier, 1, "Hi, I cook the most delicious food ever!");
-               new Cook(5, "Erik", Enums.CookRankEnum.LineCook, 1, "Hi, I cook the most delicious food ever!");
+               new Cook(1, "Alin", Enums.CookRankEnum.ExecutiveChef, 8, "Hi, I hope you like spicy food!");
+               new Cook(2, "Ana", Enums.CookRankEnum.Saucier, 5, "Hi, I cook the most delicious food ever!");
+               new Cook(3, "Cristi", Enums.CookRankEnum.LineCook, 5, "Hi, I hope you like spicy food!");
+               new Cook(4, "Ioana", Enums.CookRankEnum.LineCook, 2, "Hi, I cook the most delicious food ever!");
+               //new Cook(5, "Erik", Enums.CookRankEnum.LineCook, 1, "Hi, I cook the most delicious food ever!");
 
                _cookingAparatus = new() { new CookingAparatus("oven"), new CookingAparatus("stove") };
+
+               RegisterRestaurant();
 
                new Thread(new ThreadStart(() => this.Start())).Start();
           }
@@ -37,7 +39,7 @@ namespace KitchenServer
                          {
                               order.CoockingTime = DateTimeOffset.Now.ToUnixTimeMilliseconds() - order.OrderArriveTime;
                               Console.WriteLine($"ORDER {order.OrderId} is ready in {order.CoockingTime} TIME");
-                              SendRequestService.SendPostRequest("http://dining-hall-server-container:3000/distribution", JsonConvert.SerializeObject(order));
+                              SendRequestService.SendPostRequest($"{Constants.DINING_HALL_ADDRESS}/distribution", JsonConvert.SerializeObject(order));
                               OrderList.Instance.Orders.Remove(order);
                          }
                     }
@@ -76,6 +78,19 @@ namespace KitchenServer
                          .Where(item => item != null && item.OrderMenuItem.Complexity <= (int)cook.Rank && (item.OrderMenuItem.CookingAparatus == null || availableCookingAparatus.Contains(item.OrderMenuItem.CookingAparatus)))
                          .OrderBy(item => item.OrderMenuItem.Complexity)
                          .LastOrDefault();
+          }
+
+          private void RegisterRestaurant()
+          {
+               var restaurant = new Restaurant()
+               {
+                    Menu = Menu.Instance.MenuItems,
+                    Name = "Dragon",
+                    Address = Constants.RESTAURANT_ADDRESS,
+                    Rating = 0, 
+                    MenuItems = Menu.Instance.MenuItems.Count,
+               };
+               SendRequestService.SendPostRequest($"{Constants.FOOD_ORDERING_SERVICE_ADDRESS}/register", JsonConvert.SerializeObject(restaurant));
           }
      }
 }
